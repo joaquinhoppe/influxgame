@@ -1,0 +1,43 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Admin</title><style>
+body{font-family:system-ui;background:linear-gradient(160deg,#0f1220,#1d1340);color:#fff;max-width:520px;margin:0 auto;padding:16px;min-height:100vh}
+button{font-size:19px;padding:14px;margin:6px 0;width:100%;border:0;border-radius:14px;background:#334;color:#fff;font-weight:700;transition:transform .1s}
+button:active{transform:scale(.97)}button.go{background:linear-gradient(90deg,#2a9d4a,#35d07f)}button.stop{background:linear-gradient(90deg,#c0392b,#ff5d6c)}
+button.rv{background:linear-gradient(90deg,#7b3fe4,#c04bff)}
+.box{background:#ffffff14;border:1px solid #fff2;border-radius:14px;padding:12px;margin:12px 0}input[type=range]{width:100%}
+.ph{display:inline-block;padding:4px 12px;border-radius:99px;background:#fff2;font-weight:800;letter-spacing:.1em}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+</style></head><body>
+<h2>🎛 Panel admin</h2>
+<div class="box"><span class="ph" id="ph">…</span><div id="st" style="margin-top:8px"></div><div id="pl" style="opacity:.8;margin-top:4px"></div></div>
+<div class="row"><button class="go" onclick="post('/admin/start',{})">🚀 Iniciar ronda</button><button onclick="post('/reset',{})">🏠 Volver al lobby</button></div>
+<button id="rev" class="rv" onclick="toggleRev()">👁 Revelar trampa en proyector</button>
+<div class="box"><b>Simulación</b> (bots con el mismo promedio, distinto azar)
+<button id="sim" onclick="toggleSim()">▶ Simular partida</button>
+🤖 Bots (total, mitad por equipo): <b id="bv"></b>
+<input type="range" id="bots" min="2" max="100" step="2" value="30" oninput="setSim({bots:+this.value})">
+👆 Clicks por segundo de cada bot: <b id="cv"></b>
+<input type="range" id="cps" min="0.5" max="15" step="0.5" value="5" oninput="setSim({cps:+this.value})">
+<div id="tr" style="opacity:.8;margin:6px 0"></div>
+<div style="opacity:.6;font-size:13px">Los bots cambian el final de la soga en la próxima ronda; los clicks/s se aplican al instante.</div>
+<label><input type="checkbox" id="auto" checked onchange="post('/admin/sim',{auto:this.checked})"> Repetir solo (5 s tras ganar)</label></div>
+<script>
+let S={sim:{}};
+const post=async(u,b)=>{for(let i=0;i<3;i++){let k=localStorage.k;if(!k){k=prompt('Clave admin');if(!k)return;k=k.trim()}
+  const r=await fetch(u,{method:'POST',headers:{'Content-Type':'application/json','x-key':k},body:JSON.stringify(b)});
+  if(r.status!==401){localStorage.k=k;return}localStorage.removeItem('k');alert('Clave incorrecta, intenta de nuevo')}};
+const toggleSim=()=>post('/admin/sim',{on:!S.sim.on});
+const toggleRev=()=>post('/admin/reveal',{on:!S.reveal});
+let t,pend={};const setSim=o=>{Object.assign(pend,o);if(o.bots!==undefined)bv.textContent=o.bots;if(o.cps!==undefined)cv.textContent=o.cps;clearTimeout(t);t=setTimeout(()=>{post('/admin/sim',pend);pend={}},150)};
+const PH={lobby:'LOBBY · QR abierto',countdown:'CUENTA ATRÁS',playing:'JUGANDO',finished:'TERMINADA'};
+new EventSource('/events').onmessage=e=>{S=JSON.parse(e.data);
+ ph.textContent=PH[S.phase];
+ st.innerHTML=`🔴 ${S.rojo} (${S.lat.rojo} ms) &nbsp; 🔵 ${S.azul} (${S.lat.azul} ms)${S.winner?'<br>🏆 Ganó '+S.winner:''}`;
+ pl.textContent=`Jugadores 🔴 ${S.players.rojo} · 🔵 ${S.players.azul} · 👀 ${S.players.spectators}`;
+ sim.textContent=S.sim.on?'■ Detener simulación':'▶ Simular partida';sim.className=S.sim.on?'stop':'go';
+ rev.textContent=S.reveal?'🙈 Ocultar trampa':'👁 Revelar trampa en proyector';
+ if(document.activeElement!==bots){bots.value=S.sim.bots;bv.textContent=S.sim.bots}
+ if(document.activeElement!==cps){cps.value=S.sim.cps;cv.textContent=S.sim.cps}
+ tr.textContent=`≈ ${(S.sim.bots/2*S.sim.cps).toFixed(0)} clicks/s por equipo · ${(S.sim.bots*S.sim.cps).toFixed(0)} en total`;
+ auto.checked=S.sim.auto};
+</script></body></html>

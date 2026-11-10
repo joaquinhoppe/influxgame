@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>Tira y Afloja</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none;touch-action:manipulation}
+html,body{margin:0;height:100%;overflow:hidden;font-family:'Trebuchet MS',system-ui,sans-serif;color:#fff;background:#0b0c16}
+body{display:flex;flex-direction:column;align-items:center;justify-content:center;transition:background .6s;text-align:center;padding:16px;
+  background-size:200% 200%;animation:bgmove 6s ease-in-out infinite}
+@keyframes bgmove{50%{background-position:100% 100%}}
+body.rojo{background-image:linear-gradient(135deg,#ff2d55,#8e1236,#ff7a45,#ff2d55)}
+body.azul{background-image:linear-gradient(135deg,#1e9bff,#0e3a8f,#34e0ff,#1e9bff)}
+body.spec{background-image:linear-gradient(135deg,#3a3f5c,#171a2e,#5a4b8a,#3a3f5c)}
+.big{font-size:min(30vw,150px);animation:bounce 1.2s ease-in-out infinite;filter:drop-shadow(0 12px 0 #0004)}
+@keyframes bounce{50%{transform:translateY(-18px) rotate(6deg) scale(1.08)}}
+h1{margin:8px 0;font-size:clamp(26px,8vw,46px);text-shadow:0 4px 0 #0005}
+p{font-size:18px;opacity:.9;margin:6px 0}
+.pulse{animation:pulse 1.4s ease-in-out infinite}@keyframes pulse{50%{opacity:.5;transform:scale(.97)}}
+#game{display:none;width:100%;flex:1;flex-direction:column}
+#tapbtn{position:relative;flex:1;margin:10px 0;border:0;border-radius:36px;color:#fff;font-size:min(16vw,76px);font-weight:900;overflow:hidden;
+  background:#ffffff22;border:6px solid #fff8;box-shadow:0 12px 0 #0005,inset 0 0 60px #fff4;animation:breathe 1.2s ease-in-out infinite}
+@keyframes breathe{50%{box-shadow:0 12px 0 #0005,inset 0 0 90px #fff8,0 0 40px #fff6}}
+#tapbtn:active{transform:translateY(8px);box-shadow:0 4px 0 #0005}
+.rip{position:absolute;border-radius:50%;background:#fff;opacity:.6;pointer-events:none;animation:rip .6s ease-out forwards}
+@keyframes rip{to{transform:scale(14);opacity:0}}
+.fl{position:fixed;pointer-events:none;font-size:34px;font-weight:900;text-shadow:0 2px 0 #0008;animation:fl .8s ease-out forwards}
+@keyframes fl{to{transform:translateY(-140px) scale(1.5);opacity:0}}
+#bar{height:22px;border-radius:99px;background:linear-gradient(90deg,#ff2d55 var(--p,50%),#1e9bff var(--p,50%));border:3px solid #fff8;transition:.3s;margin:6px 0;position:relative;width:100%}
+#bar::after{content:"🚩";position:absolute;left:var(--p,50%);top:-18px;transform:translateX(-50%);font-size:30px;transition:.3s}
+#cnt{position:fixed;inset:0;display:none;align-items:center;justify-content:center;font-size:42vw;font-weight:900;background:#000a;z-index:5}
+#cnt span{animation:zoom 1s ease-out both}@keyframes zoom{from{transform:scale(3);opacity:0}to{transform:scale(.8)}}
+.emoji{display:inline-block;animation:spin 3s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}
+</style></head><body class="spec">
+<div id="msg"><div class="big">⏳</div><h1>Conectando…</h1></div>
+<div id="game"><p id="top"></p><div id="bar"></div><button id="tapbtn">¡TIRA!</button></div>
+<div id="cnt"><span id="cn"></span></div>
+<script>
+const id=localStorage.pid||(localStorage.pid=Math.random().toString(36).slice(2));
+const $=i=>document.getElementById(i);
+let me=null,S={phase:'lobby',ver:-1},joinedVer=-2,lastPhase='',taps=0,lastCd='';
+const post=(u,b)=>fetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,...b}),keepalive:true}).then(r=>r.ok?r.json():{});
+const NAME={rojo:'ROJO',azul:'AZUL'};
+async function join(){me=await post('/join');joinedVer=S.ver;render()}
+function msg(html){$('msg').style.display='block';$('game').style.display='none';$('msg').innerHTML=html}
+function render(){
+  const s=S;document.body.className=me&&me.role==='player'?me.team:'spec';
+  $('cnt').style.display=s.phase==='countdown'&&me&&me.role==='player'?'flex':'none';
+  if(!me)return;
+  if(me.role==='spectator'){
+    if(s.phase==='finished')return msg(`<div class="big">${s.winner==='rojo'?'🔴':'🔵'}</div><h1>¡Ganó ${NAME[s.winner]}!</h1><p>Eras espectador 👀</p><p class="pulse">Entra en la próxima ronda recargando cuando muestren el QR</p>`);
+    return msg(`<div class="big">👀</div><h1>Eres espectador</h1><p>La ronda ya empezó, no se puede entrar.</p><p>🔴 ${s.rojo} &nbsp; vs &nbsp; ${s.azul} 🔵</p><p class="pulse">Cuando termine y vuelva el QR, entrarás solo</p>`);
+  }
+  const mine=me.team;
+  if(s.phase==='lobby')return msg(`<div class="big">${me.emoji}</div><h1>Eres del equipo ${NAME[mine]}</h1><p class="pulse">Esperando a que empiece la ronda…</p><p>🔴 ${s.players.rojo} · 🔵 ${s.players.azul}</p>`);
+  if(s.phase==='countdown'){msg(`<div class="big">${me.emoji}</div><h1>¡Prepárate, ${NAME[mine]}!</h1>`);
+    const n=s.cd>2500?'3':s.cd>1500?'2':s.cd>500?'1':'¡YA!';if(n!==lastCd){lastCd=n;$('cn').textContent=n;$('cn').style.animation='none';void $('cn').offsetWidth;$('cn').style.animation='';navigator.vibrate&&navigator.vibrate(40)}return}
+  lastCd='';
+  if(s.phase==='playing'){$('msg').style.display='none';$('game').style.display='flex';
+    $('top').innerHTML=`${me.emoji} Equipo <b>${NAME[mine]}</b> · toques: <b id="n">${taps}</b>`;
+    $('bar').style.setProperty('--p',(50+Math.max(-1,Math.min(1,s.diff/s.win))*45)+'%');return}
+  if(s.phase==='finished'){const win=s.winner===mine;
+    return msg(`<div class="big">${win?'🏆':'😵'}</div><h1>${win?'¡GANASTE!':'Perdiste…'}</h1><p>Ganó ${NAME[s.winner]}</p>${win?'':'<p>¿Será que el juego estaba arreglado? 🤔</p>'}`)}
+}
+const es=new EventSource('/events?pid='+id);
+es.onmessage=e=>{S=JSON.parse(e.data);
+  const needJoin=S.phase==='lobby'&&(!me||me.role!=='player'||S.ver!==joinedVer);
+  if(S.phase!==lastPhase&&S.phase==='lobby')taps=0;
+  lastPhase=S.phase;
+  if(!me||needJoin)join();else render();
+  if(S.phase==='finished'&&me&&me.role==='player'&&S.winner===me.team)boom();
+};
+es.onerror=()=>{};
+// toques
+const btn=$('tapbtn');
+btn.addEventListener('pointerdown',ev=>{ev.preventDefault();if(!me||me.role!=='player'||S.phase!=='playing')return;
+  taps++;const n=$('n');if(n)n.textContent=taps;navigator.vibrate&&navigator.vibrate(12);
+  const r=btn.getBoundingClientRect(),x=ev.clientX-r.left,y=ev.clientY-r.top,d=document.createElement('div');
+  d.className='rip';d.style.cssText=`left:${x-10}px;top:${y-10}px;width:20px;height:20px`;btn.appendChild(d);setTimeout(()=>d.remove(),600);
+  const f=document.createElement('div');f.className='fl';f.textContent=['+1','💪','🔥','⚡','✨'][taps%5];
+  f.style.cssText=`left:${ev.clientX-14+(Math.random()*60-30)}px;top:${ev.clientY-30}px`;document.body.appendChild(f);setTimeout(()=>f.remove(),800);
+  post('/click',{});
+});
+function boom(){for(let i=0;i<30;i++){const f=document.createElement('div');f.className='fl';f.textContent=['🎉','🏆','✨','🎊'][i%4];
+  f.style.cssText=`left:${Math.random()*100}vw;top:${60+Math.random()*40}vh;animation-delay:${Math.random()*.6}s`;document.body.appendChild(f);setTimeout(()=>f.remove(),1600)}}
+</script></body></html>
