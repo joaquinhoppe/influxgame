@@ -47,6 +47,7 @@ La primera vez siembra ~4M de puntos históricos (`SEED_POINTS`) para que el esc
 
 ## Estructura
 
+- `GUION.md` — guión de la experiencia práctica (objetivo, materiales, pasos, rol de la audiencia)
 - `docker-compose.yml` — InfluxDB, app Node y tunnel cloudflared
 - `app/server.js` — juego, fases de la ronda, escritura/consultas Flux, simulación
 - `app/public/` — `index.html` (proyector), `play.html` (celular), `admin.html`
